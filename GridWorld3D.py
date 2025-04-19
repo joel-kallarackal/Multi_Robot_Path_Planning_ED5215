@@ -31,7 +31,9 @@ class GridWorld3D:
         
         if direction in moves:
             nx, ny, nz = moves[direction]
-            if 0 <= nx < self.width and 0 <= ny < self.height and 0 <= nz < self.depth and self.grid[nz, ny, nx] == 0:
+            # 0 <= nz+1 < self.depth and self.grid[nz+1, ny, nx] == 0 is added to check if the 
+            # next move is valid at time t and if it is valid at time t+1, i.e once the robot move there.
+            if 0 <= nx < self.width and 0 <= ny < self.height and 0 <= nz+1 < self.depth and self.grid[nz, ny, nx] == 0 and self.grid[nz+1, ny, nx] == 0:
                 self.agent_pos = (nx, ny, nz)
     
     def render(self):

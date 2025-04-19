@@ -228,17 +228,21 @@ def find_paths(grid,starts,goals):
 # grid.render_animation(paths,1000)
 
 
-# Narrow Passage
 '''
+NARROW PASSAGE
 Narrow passage 1 does not have a solution.
 Narrow passage 2 and Narrow passage 3 has a solution.
+Current Implementation can find solution for Narrow passage 3
 Current implementation does not provide solution for Narrow passage 2, Narrow passage 2 is like cornering deadlock.
 '''
-# grid, starts, goals = initialise_grid_narrow_passage2()
+# grid, starts, goals = initialise_grid_narrow_passage3()
 # paths = find_paths(grid, starts, goals)
 # grid.render_animation(paths,1000)
 
-# Junction Collision
-# grid, starts, goals = initialise_grid_junction_collision()
-# paths = find_paths(grid, starts, goals)
-# grid.render_animation(paths,1000)
+'''
+JUNCTION COLLISION
+Current Implementation may or may not find solution depending space available.F
+'''
+grid, starts, goals = initialise_grid_junction_collision()
+paths = find_paths(grid, starts, goals)
+grid.render_animation(paths,1000)
