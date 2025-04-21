@@ -33,7 +33,9 @@ class GridWorld3D:
             nx, ny, nz = moves[direction]
             # 0 <= nz+1 < self.depth and self.grid[nz+1, ny, nx] == 0 is added to check if the 
             # next move is valid at time t and if it is valid at time t+1, i.e once the robot move there.
-            if 0 <= nx < self.width and 0 <= ny < self.height and 0 <= nz+1 < self.depth and self.grid[nz, ny, nx] == 0 and self.grid[nz+1, ny, nx] == 0:
+            # self.grid[nz-1, ny, nx] == 0 is added to check if the position is occupied before the bot moves there.
+            # This is not the best method, but it avoids the risk of edge collision
+            if 0 <= nx < self.width and 0 <= ny < self.height and self.grid[nz, ny, nx] == 0 and self.grid[z, ny, nx] == 0:
                 self.agent_pos = (nx, ny, nz)
     
     def render(self):
@@ -67,7 +69,7 @@ class GridWorld3D:
         
         for dx, dy, dz in directions:
             nx, ny, nz = x + dx, y + dy, z + dz
-            if 0 <= nx < self.width and 0 <= ny < self.height and 0 <= nz < self.depth and self.grid[nz, ny, nx] == 0:
+            if 0 <= nx < self.width and 0 <= ny < self.height and 0 <= nz < self.depth and self.grid[nz, ny, nx] == 0 and self.grid[nz-1, ny, nx] == 0:
                 neighbors.append((nx, ny, nz))
         
         return neighbors

@@ -4,6 +4,7 @@ import copy
 from GridWorld import GridWorld
 from GridWorld3D import GridWorld3D
 import numpy as np
+import time
 
 
 def generate_unique_positions(total_count, grid_width, grid_height, existing_positions=set()):
@@ -70,12 +71,26 @@ def initialise_grid_narrow_passage3():
     grid = GridWorld(5, 5, obstacles)
     return grid, starts, goals
 
-def initialise_grid_junction_collision():
+def initialise_grid_junction_collision1():
     starts = [(1,2),(3,2),(2,1),(2,3)]
     goals = [(3,2),(1,2),(2,3),(2,1)]
+    # starts = [(1,2),(3,2),(2,3)]
+    # goals = [(3,2),(1,2),(2,1)]
+    # starts = [(1,2),(3,2)]
+    # goals = [(3,2),(1,2)]
     obstacles = [(1,1),(3,3),(1,3),(3,1)]
             
     grid = GridWorld(5, 5, obstacles)
+    return grid, starts, goals
+
+def initialise_grid_junction_collision2():
+    starts = [(2,3),(4,3),(3,2),(3,4)]
+    goals = [(4,3),(2,3),(3,4),(3,2)]
+    # starts = [(2,3),(4,3),(3,2)]
+    # goals = [(4,3),(2,3),(3,4)]
+    obstacles = [(2,2),(4,4),(2,4),(4,2)]
+            
+    grid = GridWorld(7, 7, obstacles)
     return grid, starts, goals
     
 def a_star(grid, start, goal, costs, heuristic):
@@ -135,23 +150,27 @@ def a_star_3D(grid, start, goal, costs, heuristic):
     visited = []
     parent = {start:None}
     curr_costs = {start:0}
-    
+
     fringe = PriorityQueue()
     fringe.put((0+get_heuristic_cost(goal, start, heuristic), 0, get_heuristic_cost(goal, start, heuristic), start))
     initial_grid = copy.copy(grid)
-    
     count=0
+    
+    rep_node = None
     while fringe:
         add_layer = False
         try:
             total, g, h, curr_node = fringe.get(timeout=0.25)
+            add_layer=False
         except:
-            pass
-        count+=1
-        if count>=50:
+            add_layer=True
+            # print(fringe.qsize())
+        
+        distance = int(get_heuristic_cost(goal, (curr_node[0], curr_node[1]), heuristic))
+        if add_layer:
             print("Replanning...")
-            initial_grid.copy_and_append_last_layer()
-            
+            for i in range(distance):
+                initial_grid.copy_and_append_last_layer()
             grid = copy.copy(initial_grid)
             
             path = []
@@ -163,7 +182,8 @@ def a_star_3D(grid, start, goal, costs, heuristic):
             fringe.put((0+get_heuristic_cost(goal, start, heuristic), 0, get_heuristic_cost(goal, start, heuristic), start))
             count=0
             continue
-            
+        
+        
         if (curr_node[0],curr_node[1]) == goal:
             node = curr_node
             while node is not None:
@@ -173,8 +193,9 @@ def a_star_3D(grid, start, goal, costs, heuristic):
         
         if curr_node in visited:
             continue
-        
+         
         visited.append(curr_node)
+        # print("Total:",grid.depth*25,",Obstacles:",np.sum(grid.grid))
         
         neighbors = grid.get_neighbors(curr_node[0], curr_node[1], curr_node[2])
         for neighbor in neighbors:
@@ -184,18 +205,12 @@ def a_star_3D(grid, start, goal, costs, heuristic):
                 fringe.put((new_cost_total, new_cost, get_heuristic_cost(goal, neighbor, heuristic), neighbor))
                 curr_costs[neighbor] = new_cost
                 parent[neighbor] = curr_node
-    
+                
     return path, grid
 
 def find_paths(grid,starts,goals):
-    
-    # Mark starts as obstacles
-    for j in range(1,len(starts)):
-        grid.obstacles.append((starts[j][0],starts[j][1]))
     paths = [a_star(grid,starts[i],goals[i],"",0) for i in range(len(starts))]
     path_0 = [(paths[0][i][0],paths[0][i][1],i) for i in range(len(paths[0]))]
-    
-    
     
     spatio_temporal_grid = []
     for i in range(len(paths[0])):
@@ -203,7 +218,11 @@ def find_paths(grid,starts,goals):
         obstacles.append((paths[0][i][0],paths[0][i][1]))
         spatio_temporal_grid.append(GridWorld(grid.width, grid.height, obstacles).grid)
         grid3d = GridWorld3D(spatio_temporal_grid)
-        
+    
+    # # Mark starts as obstacles
+    # for j in range(0,len(starts)):
+    #     grid3d.grid[0]((starts[j][0],starts[j][1]))
+     
     final_paths = []
     final_paths.append(path_0)
     for j in range(1,len(starts)):
@@ -241,8 +260,14 @@ Current implementation does not provide solution for Narrow passage 2, Narrow pa
 
 '''
 JUNCTION COLLISION
-Current Implementation may or may not find solution depending space available.F
 '''
-grid, starts, goals = initialise_grid_junction_collision()
+grid, starts, goals = initialise_grid_junction_collision1()
 paths = find_paths(grid, starts, goals)
 grid.render_animation(paths,1000)
+'''
+TODO:
+    1. Narrow Passage 2
+        - How? Will changing A* Heurisitc help?
+    2. Junction Collision - DONE
+    3. Edge collision needs to be solved - DONE
+'''
