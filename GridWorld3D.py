@@ -69,7 +69,7 @@ class GridWorld3D:
         
         for dx, dy, dz in directions:
             nx, ny, nz = x + dx, y + dy, z + dz
-            if 0 <= nx < self.width and 0 <= ny < self.height and 0 <= nz < self.depth and self.grid[nz, ny, nx] == 0 and self.grid[nz-1, ny, nx] == 0:
+            if 0 <= nx < self.width and 0 <= ny < self.height and 0 <= nz < self.depth and self.grid[nz, ny, nx] == 0: #and self.grid[nz-1, ny, nx] == 0:
                 neighbors.append((nx, ny, nz))
         
         return neighbors

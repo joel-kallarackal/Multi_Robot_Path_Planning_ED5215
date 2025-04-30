@@ -5,6 +5,58 @@ from GridWorld import GridWorld
 from GridWorld3D import GridWorld3D
 import numpy as np
 import time
+from collections import defaultdict
+
+def build_wait_for_graph(paths):
+    wfg = defaultdict(int)  # directed graph: robot A → robot B
+
+    for i in range(len(paths)):
+        for j in range(len(paths)):
+            if i==j:
+                continue
+            for t in range(min(len(paths[i]), len(paths[j]))):
+                if paths[i][t] == paths[j][t]:   
+                    wfg[i] = j             
+                
+    return wfg
+
+from collections import defaultdict
+
+def build_graph(edge_dict):
+    graph = defaultdict(list)
+    for u, v in edge_dict.items():
+        graph[u].append(v)
+    return graph
+
+def find_all_cycles(graph):
+    all_cycles = set()
+    path = []
+
+    def dfs(current, visited, stack):
+        visited.add(current)
+        stack.add(current)
+        path.append(current)
+
+        for neighbor in graph[current]:
+            if neighbor in stack:
+                # Found a cycle — extract and normalize it
+                cycle_start_index = path.index(neighbor)
+                cycle = path[cycle_start_index:]
+                # Normalize by rotating so the smallest element is first
+                min_index = cycle.index(min(cycle))
+                normalized_cycle = tuple(cycle[min_index:] + cycle[:min_index])
+                all_cycles.add(normalized_cycle)
+            elif neighbor not in visited:
+                dfs(neighbor, visited, stack)
+
+        stack.remove(current)
+        path.pop()
+
+    for node in graph:
+        dfs(node, set(), set())
+
+    return [list(cycle) for cycle in all_cycles]
+
 
 
 def generate_unique_positions(total_count, grid_width, grid_height, existing_positions=set()):
@@ -14,7 +66,7 @@ def generate_unique_positions(total_count, grid_width, grid_height, existing_pos
         pos = (random.randint(0, grid_width-1), random.randint(0, grid_height-1))
         if pos not in positions:  
             positions.add(pos)
-    return list(positions - existing_positions) 
+    return list(positions - existing_positions)
 
 def generate_problem(grid_width, grid_height,n_bots=3,n_obstacles=0):
     # starts = [(random.randint(0, grid_width-1),random.randint(0, grid_height-1)) for i in range(n_bots)]
@@ -92,6 +144,15 @@ def initialise_grid_junction_collision2():
             
     grid = GridWorld(7, 7, obstacles)
     return grid, starts, goals
+
+def initialise_grid_door():
+    starts = [(0,0),(0,1),(0,2),(0,3),(0,4)]
+    goals = [(4,0),(4,1),(4,2),(4,3),(4,4)]
+    obstacles = [(2,0), (2,1), (2,3),(2,4)]
+    
+            
+    grid = GridWorld(5, 5, obstacles)
+    return grid, starts, goals
     
 def a_star(grid, start, goal, costs, heuristic):
     path = [] #this should contai list of nodes [start, (20,30), (21,30), ...., goal] as a path from start to goal
@@ -154,10 +215,12 @@ def a_star_3D(grid, start, goal, costs, heuristic):
     fringe = PriorityQueue()
     fringe.put((0+get_heuristic_cost(goal, start, heuristic), 0, get_heuristic_cost(goal, start, heuristic), start))
     initial_grid = copy.copy(grid)
-    count=0
-    
     rep_node = None
+    t1 = time.time()
     while fringe:
+        t2=time.time()
+        if (t2-t1)>10:
+            return path, grid, False
         add_layer = False
         try:
             total, g, h, curr_node = fringe.get(timeout=0.25)
@@ -189,7 +252,7 @@ def a_star_3D(grid, start, goal, costs, heuristic):
             while node is not None:
                 path.append(node)
                 node = parent[node]
-            return path[::-1], grid
+            return path[::-1], grid, True
         
         if curr_node in visited:
             continue
@@ -206,46 +269,66 @@ def a_star_3D(grid, start, goal, costs, heuristic):
                 curr_costs[neighbor] = new_cost
                 parent[neighbor] = curr_node
                 
-    return path, grid
+    return path, grid, False
 
 def find_paths(grid,starts,goals):
     paths = [a_star(grid,starts[i],goals[i],"",0) for i in range(len(starts))]
+    
+    wfg = build_wait_for_graph(paths)
+    graph = build_graph(wfg)
+
+    cycles = find_all_cycles(graph)
+
+    print("All cycles:")
+    for cycle in cycles:
+        print(cycle)
+
+
+        
+
+    
     path_0 = [(paths[0][i][0],paths[0][i][1],i) for i in range(len(paths[0]))]
     
-    spatio_temporal_grid = []
-    for i in range(len(paths[0])):
-        obstacles = copy.copy(grid.obstacles)
-        obstacles.append((paths[0][i][0],paths[0][i][1]))
-        spatio_temporal_grid.append(GridWorld(grid.width, grid.height, obstacles).grid)
-        grid3d = GridWorld3D(spatio_temporal_grid)
-    
-    # # Mark starts as obstacles
-    # for j in range(0,len(starts)):
-    #     grid3d.grid[0]((starts[j][0],starts[j][1]))
-     
-    final_paths = []
-    final_paths.append(path_0)
-    for j in range(1,len(starts)):
-        path = None
+    # Currently searches through every possible starting path, in case one combination does not have a solution
+    # TODO:
+    #       Search through every permutation, not just different starts.
+    path_found=False
+    for h in range(len(paths)):
+        spatio_temporal_grid = []
+        for i in range(len(paths[h])):
+            obstacles = copy.copy(grid.obstacles)
+            obstacles.append((paths[h][i][0],paths[h][i][1]))
+            spatio_temporal_grid.append(GridWorld(grid.width, grid.height, obstacles).grid)
+            grid3d = GridWorld3D(spatio_temporal_grid)
         
-        path, grid3d = a_star_3D(grid3d,(starts[j][0],starts[j][1],0),goals[j],"",0)
-        if len(path)<grid3d.depth:
-            for i in range(len(path),grid3d.depth):
-                grid3d.grid[i][goals[j][1],goals[j][0]] = 1
-        for m in range(len(path)):
-            grid3d.grid[m][path[m][1], path[m][0]] = 1
-            
-        final_paths.append(path)
-        print(f"Start: {starts[j]}, Goal: {goals[j]}")
-        print(f"Spatio Temporal Path {j+1}:", path)
-            
-    return final_paths
+        final_paths = []
+        final_paths.append(path_0)
+        for j in range(0,len(starts)):
+            path = None
+            if j!=h:
+                path, grid3d, path_found = a_star_3D(grid3d,(starts[j][0],starts[j][1],0),goals[j],"",0)
+                if not path_found:
+                    break    
+                if len(path)<grid3d.depth:
+                    for i in range(len(path),grid3d.depth):
+                        grid3d.grid[i][goals[j][1],goals[j][0]] = 1
+                for m in range(len(path)):
+                    grid3d.grid[m][path[m][1], path[m][0]] = 1
+                    
+                final_paths.append(path)
+                print(f"Start: {starts[j]}, Goal: {goals[j]}")
+                print(f"Spatio Temporal Path {j+1}:", path)
+        
+        if path_found:
+            return final_paths        
+    
+      
+    return None
     
 # Random Test
-# grid, starts, goals = initialise_grid(5,5,4,2)
+# grid, starts, goals = initialise_grid(5,5,4,6)
 # paths = find_paths(grid, starts, goals)
 # grid.render_animation(paths,1000)
-
 
 '''
 NARROW PASSAGE
@@ -254,16 +337,16 @@ Narrow passage 2 and Narrow passage 3 has a solution.
 Current Implementation can find solution for Narrow passage 3
 Current implementation does not provide solution for Narrow passage 2, Narrow passage 2 is like cornering deadlock.
 '''
-# grid, starts, goals = initialise_grid_narrow_passage3()
+# grid, starts, goals = initialise_grid_narrow_passage1()
 # paths = find_paths(grid, starts, goals)
 # grid.render_animation(paths,1000)
 
 '''
 JUNCTION COLLISION
 '''
-grid, starts, goals = initialise_grid_junction_collision1()
-paths = find_paths(grid, starts, goals)
-grid.render_animation(paths,1000)
+# grid, starts, goals = initialise_grid_junction_collision1()
+# paths = find_paths(grid, starts, goals)
+# grid.render_animation(paths,1000)
 '''
 TODO:
     1. Narrow Passage 2
@@ -271,3 +354,10 @@ TODO:
     2. Junction Collision - DONE
     3. Edge collision needs to be solved - DONE
 '''
+
+'''
+DOOR
+'''
+grid, starts, goals = initialise_grid_door()
+paths = find_paths(grid, starts, goals)
+grid.render_animation(paths,1000)
